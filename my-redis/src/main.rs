@@ -1,14 +1,14 @@
-use mini_redis::client;
+use mini_redis::{client, Result};
 
 #[tokio::main]
-async fn main() -> mini_redis::Result<()> {
-    // Open a connection to the mini-redis address.
+pub async fn main() -> Result<()> {
+    // mini-redis アドレスへのコネクションを開く
     let mut client = client::connect("127.0.0.1:6379").await?;
 
-    // Set the key "hello" with value "world"
+    // "hello" というキーに "world" という値をセット
     client.set("hello", "world".into()).await?;
 
-    // Get key "hello"
+    // "hello" の値を取得
     let result = client.get("hello").await?;
 
     println!("got value from the server; result={:?}", result);
