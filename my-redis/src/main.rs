@@ -7,16 +7,36 @@ async fn main() {
 
     loop {
         let (socket, _) = listener.accept().await.unwrap();
-        process(socket).await;
+
+        tokio::spawn(async move {
+            process(socket).await;
+        });
     }
 }
 
 async fn process(socket: TcpStream) {
-    let mut connection = Connection::new(socket);
-    if let Some(frame) = connection.read_frame().await.unwrap() {
-        print!("GOT: {:?}", frame);
+    use mini_redis::Command::{self, Get, Set};
+    use std::collections::HashMap;
 
-        let resoponse = Frame::Error("uniplemented".to_string());
-        connection.write_frame(&resoponse).await.unwrap();
+    let mut db = HashMap::new();
+    let mut connection = Connection::new(socket);
+
+    while let Some(frame) = connection.read_frame().await.unwrap() {
+        let response = match Command::from_frame(frame).unwrap() {
+            Set(cmd) => {
+                db.insert(cmd.key().to_string(), cmd.value().to_vec());
+                Frame::Simple("OK".to_string())
+            }
+            Get(cmd) => {
+                if let Some(value) = db.get(cmd.key()) {
+                    Frame::Bulk(value.clone().into())
+                } else {
+                    Frame::Null
+                }
+            }
+            cmd => panic!("unimplemented {:?}", cmd),
+        };
+
+        connection.write_frame(&response).await.unwrap();
     }
 }
